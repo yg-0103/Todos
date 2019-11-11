@@ -54,9 +54,9 @@ const addTodo = async content => {
 
 const toggleCompleted = async id => {
   try {
-    const { completed } = todos.find(todo => todo.id === +id);
+    const completed = !todos.find(todo => todo.id === +id).completed;
 
-    const res = await axios.patch(`/todos/${id}`, { completed: !completed });
+    const res = await axios.patch(`/todos/${id}`, { completed });
     todos = res.data;
     render();
   } catch (e) {
