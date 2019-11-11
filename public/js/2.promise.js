@@ -39,9 +39,8 @@ const ajax = (() => {
       xhr.setRequestHeader('content-type', 'application/json');
       xhr.send(JSON.stringify(payload));
 
-      xhr.onreadystatechange = () => {
-        if (xhr.readyState !== XMLHttpRequest.DONE) return;
-        if (xhr.status === 200) {
+      xhr.onload = () => {
+        if (xhr.status === 200 || xhr.status === 201) {
           resolve(JSON.parse(xhr.response));
         } else {
           reject(new Error(xhr.status));
