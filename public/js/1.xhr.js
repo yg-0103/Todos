@@ -1,41 +1,17 @@
 let todos = [];
-// 현재 선택된 nav 상태(현재 active 상태인 nav 요소의 자식 요소의 id)
-let navState = 'all'; // 'all' / 'active' / 'completed'
+let navState = 'all';
 
-// DOMs
+// DOM 노드
 const $todos = document.querySelector('.todos');
-const $input = document.querySelector('.input-todo');
-const $checkbox = document.querySelector('.complete-all > .checkbox');
-const $clearCompleted = document.querySelector('.clear-completed > .btn');
-const $completedTodos = document.querySelector('.completed-todos');
-const $activeTodos = document.querySelector('.active-todos');
+const $inputTodo = document.querySelector('.input-todo');
+const $allCompletedBtn = document.getElementById('ck-complete-all');
+const $clearCompletedBtn = document.querySelector('.btn');
 const $nav = document.querySelector('.nav');
 
-const render = data => {
-  todos = data || todos;
-
-  const _todos = todos.filter(({ completed }) => (navState === 'all' ? true : navState === 'active' ? !completed : completed));
-
-  let html = '';
-
-  _todos.forEach(({ id, content, completed }) => {
-    html += `
-      <li id="${id}" class="todo-item">
-        <input class="checkbox" type="checkbox" id="ck-${id}" ${completed ? 'checked' : ''}>
-        <label for="ck-${id}">${content}</label>
-        <i class="remove-todo far fa-times-circle"></i>
-      </li>`;
-  });
-
-  $todos.innerHTML = html;
-  $completedTodos.textContent = todos.filter(todo => todo.completed).length;
-  $activeTodos.textContent = todos.filter(todo => !todo.completed).length;
-};
-
+// 서버 통신
 const ajax = (() => {
-  const req = (method, url, cb, payload) => {
+  function req(method, url, cb, payload) {
     const xhr = new XMLHttpRequest();
-
     xhr.open(method, url);
     xhr.setRequestHeader('content-type', 'application/json');
     xhr.send(JSON.stringify(payload));
@@ -44,94 +20,121 @@ const ajax = (() => {
       if (xhr.status === 200 || xhr.status === 201) {
         cb(JSON.parse(xhr.response));
       } else {
-        console.error('Error', xhr.status, xhr.statusText);
+        throw new Error('Error' + xhr.status);
       }
     };
-  };
+  }
+
   return {
     get(url, cb) {
       req('GET', url, cb);
     },
-    post(url, payload, cb) {
+
+    post(url, cb, payload) {
       req('POST', url, cb, payload);
     },
-    patch(url, payload, cb) {
+
+    patch(url, cb, payload) {
       req('PATCH', url, cb, payload);
     },
+
     delete(url, cb) {
       req('DELETE', url, cb);
-    }
+    },
   };
 })();
 
-const generateid = () => (todos.length ? Math.max(...todos.map(todo => todo.id)) + 1 : 1);
+// Todos function
+const render = (data = todos) => {
+  todos = data;
+  const active = todos.filter((todo) => !todo.completed);
+  const completed = todos.filter((todo) => todo.completed);
+  const _todos =
+    navState === 'all' ? todos : navState === 'active' ? active : completed;
 
-const getTodos = () => {
-  ajax.get('/todos', render);
+  $todos.innerHTML = _todos
+    .map(
+      ({ id, content, completed }) => `<li id="${id}" class="todo-item">
+  <input class="checkbox" type="checkbox" id="ck-${id}" ${
+        completed ? 'checked' : ''
+      }>
+  <label for="ck-${id}" style="text-decoration: ${
+        completed ? 'line-through' : 'none'
+      }">${content}</label>
+  <i class="remove-todo far fa-times-circle"></i>
+</li>`
+    )
+    .join('');
+
+  document.querySelector('.active-todos').textContent = active.length;
+  document.querySelector('.completed-todos').textContent = completed.length;
+
+  $allCompletedBtn.checked =
+    todos.length === completed.length ? (todos.length ? true : true) : false;
 };
 
-const addTodo = content => {
-  ajax.post('/todos', { id: generateid(), content, completed: false }, render);
+const addTodo = (() => {
+  const generateId = () =>
+    todos.length ? Math.max(...todos.map((todo) => todo.id)) + 1 : 1;
+
+  return (content) => {
+    console.log(generateId());
+    const payload = { id: generateId(), content, completed: false };
+    ajax.post('/todos', render, payload);
+  };
+})();
+
+const removeTodo = (id) => {
+  ajax.delete(`/todos/${+id}`, render);
 };
 
-const toggleCompleted = id => {
-  const completed = !todos.find(todo => todo.id === +id).completed;
-  ajax.patch(`/todos/${id}`, { completed }, render);
+const toggleComplete = (id) => {
+  const todo = todos.find((todo) => todo.id === +id);
+  ajax.patch(`/todos/${+id}`, render, { ...todo, completed: !todo.completed });
 };
 
-const removeTodo = id => {
-  ajax.delete(`/todos/${id}`, render);
+const completedAll = (target) => {
+  ajax.patch('/todos', render, { completed: target.checked });
 };
 
-const changeNav = id => {
-  // $navItem의 id가 e.target의 id와 같으면 active 클래스를 추가하고 아니면 active 클래스를 제거
-  [...$nav.children].forEach($navItem => {
-    $navItem.classList.toggle('active', $navItem.id === id);
+const clearCompleted = () => {
+  ajax.delete('todos/completed', render);
+};
+
+const chageState = (target) => {
+  [...$nav.children].forEach((child) => {
+    child.classList.toggle('active', child === target);
   });
-
-  navState = id;
-  console.log('[navState]', navState);
-};
-
-const toggleCompletedAll = completed => {
-  ajax.patch('/todos', { completed }, render);
-};
-
-const removeCompleted = () => {
-  ajax.delete('/todos/completed', render);
-};
-
-// Events
-window.onload = getTodos;
-
-$input.onkeyup = ({ target, keyCode }) => {
-  const content = target.value.trim();
-
-  if (!content || keyCode !== 13) return;
-
-  target.value = '';
-  addTodo(content);
-};
-
-$todos.onchange = ({ target }) => {
-  toggleCompleted(target.parentNode.id);
-};
-
-$todos.onclick = ({ target }) => {
-  if (!target.classList.contains('remove-todo')) return;
-  removeTodo(target.parentNode.id);
-};
-
-$nav.onclick = ({ target }) => {
-  if (target.classList.contains('nav')) return;
-  changeNav(target.id);
+  navState = target.id;
   render();
 };
 
-// todo.completed 일괄 토글
-$checkbox.onchange = ({ target }) => {
-  toggleCompletedAll(target.checked);
-};
+// event handle
+document.addEventListener('DOMContentLoaded', () => {
+  ajax.get('/todos', render);
+});
 
-// todo.completed 일괄 제거
-$clearCompleted.onclick = removeCompleted;
+$inputTodo.addEventListener('keyup', (e) => {
+  if (e.key !== 'Enter' || !e.target.value) return;
+  addTodo(e.target.value);
+  e.target.value = '';
+});
+
+$todos.addEventListener('click', (e) => {
+  if (!e.target.matches('.remove-todo')) return;
+  removeTodo(e.target.parentNode.id);
+});
+
+$todos.addEventListener('change', (e) => {
+  toggleComplete(e.target.parentNode.id);
+});
+
+$allCompletedBtn.addEventListener('click', (e) => {
+  completedAll(e.target);
+});
+
+$clearCompletedBtn.addEventListener('click', clearCompleted);
+
+$nav.addEventListener('click', (e) => {
+  chageState(e.target);
+});

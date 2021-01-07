@@ -5,7 +5,7 @@ const app = express();
 let todos = [
   { id: 1, content: 'HTML', completed: false },
   { id: 2, content: 'CSS', completed: true },
-  { id: 3, content: 'Javascript', completed: false }
+  { id: 3, content: 'Javascript', completed: false },
 ];
 
 app.use(express.static('public'));
@@ -30,7 +30,7 @@ app.post('/todos', (req, res) => {
 
 app.patch('/todos', (req, res) => {
   const { completed } = req.body;
-  todos = todos.map(todo => ({ ...todo, completed }));
+  todos = todos.map((todo) => ({ ...todo, completed }));
 
   res.send(todos);
 });
@@ -38,20 +38,22 @@ app.patch('/todos', (req, res) => {
 app.patch('/todos/:id', (req, res) => {
   const { id } = req.params;
   const { completed } = req.body;
-  todos = todos.map(todo => (todo.id === +id ? { ...todo, completed } : todo));
+  todos = todos.map((todo) =>
+    todo.id === +id ? { ...todo, completed } : todo
+  );
 
   res.send(todos);
 });
 
 app.delete('/todos/completed', (req, res) => {
-  todos = todos.filter(todo => !todo.completed);
+  todos = todos.filter((todo) => !todo.completed);
 
   res.send(todos);
 });
 
 app.delete('/todos/:id', (req, res) => {
   const { id } = req.params;
-  todos = todos.filter(todo => todo.id !== +id);
+  todos = todos.filter((todo) => todo.id !== +id);
 
   res.send(todos);
 });
